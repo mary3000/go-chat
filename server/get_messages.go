@@ -34,7 +34,7 @@ func getMessages(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	msgs := []Message{}
+	var msgs []Message
 	db.Where("chat_id = ?", chatID).Find(&msgs).Order("created_at ASC")
 
 	log.Printf("Found messages for %v", msgReq)

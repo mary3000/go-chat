@@ -3,7 +3,6 @@ package main
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/jinzhu/gorm"
 	"log"
 	"net/http"
 	"strconv"
@@ -32,16 +31,15 @@ func addChat(w http.ResponseWriter, r *http.Request) {
 
 	chat := &Chat{Name: chatReq.Name}
 
-	users := []User{}
-	for _, u := range chatReq.Users {
+	users := make([]User, len(chatReq.Users))
+	for i, u := range chatReq.Users {
 		id, err := strconv.Atoi(u)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
 		}
-		users = append(users, User{
-			Model: gorm.Model{ID: uint(id)},
-		})
+		users[i].ID = uint(id)
+		db.Where(&users[i]).First(&users[i])
 	}
 	chat.Users = users
 

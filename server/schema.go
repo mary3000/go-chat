@@ -10,7 +10,6 @@ type User struct {
 	gorm.Model
 
 	Username string `gorm:"unique"`
-	Chats    []Chat `gorm:"many2many:chat_users"`
 }
 
 // id, created_at - defined in gorm.Model
