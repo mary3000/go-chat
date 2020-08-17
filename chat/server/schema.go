@@ -1,4 +1,4 @@
-package main
+package server
 
 import (
 	"github.com/jinzhu/gorm"
@@ -28,3 +28,5 @@ type Message struct {
 	UserID uint // author
 	Text   string
 }
+
+var Db *gorm.DB

@@ -1,18 +1,17 @@
-package main
+package server
 
 import (
 	"encoding/json"
 	"fmt"
 	"log"
 	"net/http"
-	"strconv"
 )
 
-type getMessagesRequest struct {
+type GetChatInfoRequest struct {
 	Chat string
 }
 
-func getMessages(w http.ResponseWriter, r *http.Request) {
+func GetChatInfo(w http.ResponseWriter, r *http.Request) {
 	contentType := r.Header.Get("Content-type")
 	expectedContentType := "application/json"
 	if contentType != expectedContentType {
@@ -21,25 +20,21 @@ func getMessages(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var msgReq getMessagesRequest
-	err := json.NewDecoder(r.Body).Decode(&msgReq)
+	var chatsReq GetChatInfoRequest
+	err := json.NewDecoder(r.Body).Decode(&chatsReq)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
 
-	chatID, err := strconv.Atoi(msgReq.Chat)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
-		return
-	}
+	var chat Chat
+	Db.Model(&chat).Association("Users")
+	Db.Where("name = ?", chatsReq.Chat).First(&chat)
+	Db.Model(&chat).Association("Users").Find(&chat.Users)
 
-	var msgs []Message
-	db.Where("chat_id = ?", chatID).Find(&msgs).Order("created_at ASC")
+	log.Printf("Got chat: %v ", chat)
 
-	log.Printf("Found messages for %v", msgReq)
-
-	js, err := json.Marshal(msgs)
+	js, err := json.Marshal(chat)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return

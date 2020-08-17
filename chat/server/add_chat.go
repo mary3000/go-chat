@@ -1,4 +1,4 @@
-package main
+package server
 
 import (
 	"encoding/json"
@@ -8,12 +8,12 @@ import (
 	"strconv"
 )
 
-type addChatRequest struct {
+type AddChatRequest struct {
 	Name  string
 	Users []string
 }
 
-func addChat(w http.ResponseWriter, r *http.Request) {
+func AddChat(w http.ResponseWriter, r *http.Request) {
 	contentType := r.Header.Get("Content-type")
 	expectedContentType := "application/json"
 	if contentType != expectedContentType {
@@ -22,7 +22,7 @@ func addChat(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var chatReq addChatRequest
+	var chatReq AddChatRequest
 	err := json.NewDecoder(r.Body).Decode(&chatReq)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
@@ -39,11 +39,11 @@ func addChat(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		users[i].ID = uint(id)
-		db.Where(&users[i]).First(&users[i])
+		Db.Where(&users[i]).First(&users[i])
 	}
 	chat.Users = users
 
-	res := db.Create(chat)
+	res := Db.Create(chat)
 	if res.Error != nil {
 		http.Error(w, res.Error.Error(), http.StatusBadRequest)
 		return

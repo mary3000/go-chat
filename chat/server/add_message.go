@@ -1,4 +1,4 @@
-package main
+package server
 
 import (
 	"encoding/json"
@@ -8,13 +8,13 @@ import (
 	"strconv"
 )
 
-type addMessageRequest struct {
+type AddMessageRequest struct {
 	Chat   string
 	Author string
 	Text   string
 }
 
-func addMessage(w http.ResponseWriter, r *http.Request) {
+func AddMessage(w http.ResponseWriter, r *http.Request) {
 	contentType := r.Header.Get("Content-type")
 	expectedContentType := "application/json"
 	if contentType != expectedContentType {
@@ -23,7 +23,7 @@ func addMessage(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var msgReq addMessageRequest
+	var msgReq AddMessageRequest
 	err := json.NewDecoder(r.Body).Decode(&msgReq)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
@@ -46,7 +46,7 @@ func addMessage(w http.ResponseWriter, r *http.Request) {
 		UserID: uint(authorID),
 		Text:   msgReq.Text}
 
-	res := db.Create(msg)
+	res := Db.Create(msg)
 	if res.Error != nil {
 		http.Error(w, res.Error.Error(), http.StatusBadRequest)
 		return

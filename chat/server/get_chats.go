@@ -1,4 +1,4 @@
-package main
+package server
 
 import (
 	"encoding/json"
@@ -19,7 +19,7 @@ type chatDescriptor struct {
 	CreatedAt time.Time
 }
 
-func getChats(w http.ResponseWriter, r *http.Request) {
+func GetChats(w http.ResponseWriter, r *http.Request) {
 	contentType := r.Header.Get("Content-type")
 	expectedContentType := "application/json"
 	if contentType != expectedContentType {
@@ -41,7 +41,7 @@ func getChats(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	rows, err := db.Table("chats").
+	rows, err := Db.Table("chats").
 		Select("chats.name, chats.id, chats.created_at, max(messages.created_at) as update_time").
 		Joins("join chat_users on chat_users.chat_id = chats.id").
 		Where("chat_users.user_id = ?", userID).
