@@ -41,6 +41,24 @@ func AddMessage(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	var chat Chat
+	Db.Model(&chat).Association("Users")
+	Db.Where("id = ?", chatID).First(&chat)
+	Db.Model(&chat).Association("Users").Find(&chat.Users)
+
+	authorInChat := false
+	for _, u := range chat.Users {
+		if int(u.ID) == authorID {
+			authorInChat = true
+			break
+		}
+	}
+
+	if !authorInChat {
+		http.Error(w, fmt.Sprintf("User with id %v not registered in chat %v", authorID, chat.Name), http.StatusBadRequest)
+		return
+	}
+
 	msg := &Message{
 		ChatID: uint(chatID),
 		UserID: uint(authorID),

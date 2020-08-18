@@ -28,7 +28,7 @@ Server lives on `9000` port.
 #### With docker
 
 1. `cd chat/cmd/client`
-2. `bash client.sh`
+2. `bash client.sh`. To force image rebuilding, run `bash client.sh -f`
 
 #### Without docker
 
@@ -43,3 +43,6 @@ Under client, you can do commands:
 
 After you both logged in user and chat, you can start typing messages!
 
+Conversation example:  
+<img src="https://i.ibb.co/HF17sJp/Screenshot-2020-08-18-at-16-35-24.png" alt="alice" width="400px"> 
+<img src="https://i.ibb.co/gPV8CXH/Screenshot-2020-08-18-at-16-36-01.png" alt="bob" width="400px"> 

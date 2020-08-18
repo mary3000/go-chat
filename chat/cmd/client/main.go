@@ -19,7 +19,7 @@ import (
 const prefix = "-> "
 
 func internalPrefix() string {
-	return prefix + fmt.Sprintf("[%v]:[%v] ", currentChatString(), currentNameString())
+	return prefix + fmt.Sprintf("[%v]:[%v] (you) ", currentChatString(), currentNameString())
 }
 
 func externalPrefix(user string) string {
@@ -169,7 +169,11 @@ func newChat(chat string, users []string) {
 	if resp.StatusCode == http.StatusOK {
 		userInput <- fmt.Sprintf("Chat %v registered", chat)
 	} else {
-		userInput <- fmt.Sprintf("Fail, status = %v", resp.StatusCode)
+		bodyBytes, err := ioutil.ReadAll(resp.Body)
+		if err != nil {
+			log.Fatal(err)
+		}
+		userInput <- fmt.Sprintf("Fail: %v", string(bodyBytes))
 	}
 }
 
@@ -230,7 +234,11 @@ func handleText(text string) {
 	if resp.StatusCode == http.StatusOK {
 		//userInput <- fmt.Sprint("")
 	} else {
-		userInput <- fmt.Sprintf("Fail, status = %v", resp.StatusCode)
+		bodyBytes, err := ioutil.ReadAll(resp.Body)
+		if err != nil {
+			log.Fatal(err)
+		}
+		userInput <- fmt.Sprintf("Fail: %v", string(bodyBytes))
 	}
 }
 
@@ -394,8 +402,8 @@ func main() {
 		case text := <-userInput:
 			fmt.Println(text)
 		case text := <-extInput:
-			fmt.Println("")
-			fmt.Println(text)
+			//fmt.Println("")
+			fmt.Println("\r" + text)
 		}
 	}
 }
