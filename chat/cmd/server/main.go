@@ -10,9 +10,11 @@ import (
 
 var port = "9000"
 
+var dbName = "db"
+
 func main() {
 	var err error
-	server.Db, err = gorm.Open("sqlite3", "db")
+	server.Db, err = gorm.Open("sqlite3", dbName)
 	if err != nil {
 		log.Fatal(err.Error())
 	}
