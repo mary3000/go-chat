@@ -1,0 +1,12 @@
+version: "3.8"
+services:
+  server:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "9000:9000"
+    volumes:
+      - ../../../:/go/src/chat
+    working_dir: /go/src/chat/chat/cmd/server
+    command: go run main.go

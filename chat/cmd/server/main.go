@@ -12,7 +12,7 @@ var port = "9000"
 
 func main() {
 	var err error
-	server.Db, err = gorm.Open("sqlite3", "test.chat.Db")
+	server.Db, err = gorm.Open("sqlite3", "db")
 	if err != nil {
 		log.Fatal(err.Error())
 	}

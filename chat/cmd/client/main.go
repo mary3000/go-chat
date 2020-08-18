@@ -6,11 +6,13 @@ import (
 	"chat/chat/server"
 	"encoding/json"
 	"fmt"
+	"io/ioutil"
 	"log"
 	"net/http"
 	"os"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 )
 
@@ -25,22 +27,30 @@ func externalPrefix(user string) string {
 }
 
 func currentNameString() string {
+	mu.Lock()
+	defer mu.Unlock()
+
 	if currentUser == nil {
-		return ""
+		return "_"
 	}
 	return currentUser.Username
 }
 
 func currentChatString() string {
+	mu.Lock()
+	defer mu.Unlock()
+
 	if currentChat == nil {
-		return ""
+		return "_"
 	}
 	return currentChat.Name
 }
 
 var (
-	currentUser  *server.User
-	currentChat  *server.Chat
+	currentUser *server.User
+	currentChat *server.Chat
+	mu          sync.Mutex
+
 	nextMsgIndex = 0
 	userNames    = make(map[uint]string)
 )
@@ -86,37 +96,57 @@ func handleCmd(text string) {
 	cmd := parts[0]
 
 	switch cmd {
-	case "register":
+	case "r":
 		register(parts[1])
-	case "login":
+	case "l":
 		login(parts[1])
-	case "newchat":
+	case "cr":
 		newChat(parts[1], parts[2:])
-	case "enterchat":
+	case "cl":
 		enterChat(parts[1])
+	default:
+		userInput <- fmt.Sprint("Fail, unknown command")
 	}
 }
 
 func enterChat(chat string) {
-	if currentUser == nil {
+	mu.Lock()
+	userInfo := currentUser
+	mu.Unlock()
+
+	if userInfo == nil {
 		userInput <- fmt.Sprint("Fail, register/login first")
 		return
 	}
 
 	//todo: check chat exists
-	currentChat = remoteChatInfo(chat)
+	chatInfo, err := remoteChatInfo(chat)
+	if err != nil {
+		userInput <- fmt.Sprintf("Fail: %v", err.Error())
+		return
+	}
 
-	for _, u := range currentChat.Users {
+	for _, u := range chatInfo.Users {
 		userNames[u.ID] = u.Username
 	}
 
-	userInput <- fmt.Sprint("Chat entered")
+	mu.Lock()
+	currentChat = chatInfo
+	mu.Unlock()
+
+	userInput <- fmt.Sprintf("Chat %v entered", chatInfo.Name)
 }
 
 func newChat(chat string, users []string) {
+	var userIDs []string
+	for _, u := range users {
+		userInfo := remoteUserInfo(u)
+		userIDs = append(userIDs, strconv.Itoa(int(userInfo.ID)))
+	}
+
 	data := server.AddChatRequest{
 		Name:  chat,
-		Users: users,
+		Users: userIDs,
 	}
 	payloadBytes, err := json.Marshal(data)
 	if err != nil {
@@ -145,21 +175,38 @@ func newChat(chat string, users []string) {
 
 func login(name string) {
 	//todo: check user exists
-	currentUser = remoteUserInfo(name)
-	userInput <- fmt.Sprint("Logged in")
+	userInfo := remoteUserInfo(name)
+	if userInfo.ID == 0 {
+		userInput <- fmt.Sprint("Fail, user doesn't exist")
+	} else {
+		mu.Lock()
+		currentUser = userInfo
+		mu.Unlock()
+
+		userInput <- fmt.Sprint("Logged in")
+	}
 }
 
 func handleText(text string) {
 	//todo: check for chat & name
 
-	if currentChat == nil || currentUser == nil {
-		userInput <- fmt.Sprint("Fail, register/login first")
+	mu.Lock()
+	chatInfo := currentChat
+	userInfo := currentUser
+	mu.Unlock()
+
+	if chatInfo == nil || userInfo == nil {
+		if chatInfo == nil {
+			userInput <- fmt.Sprint("Fail, login into chat first")
+		} else {
+			userInput <- fmt.Sprint("Fail, login into user first")
+		}
 		return
 	}
 
 	data := server.AddMessageRequest{
-		Chat:   strconv.Itoa(int(currentChat.ID)),
-		Author: strconv.Itoa(int(currentUser.ID)),
+		Chat:   strconv.Itoa(int(chatInfo.ID)),
+		Author: strconv.Itoa(int(userInfo.ID)),
 		Text:   text,
 	}
 	payloadBytes, err := json.Marshal(data)
@@ -206,12 +253,17 @@ func handleUserInput() {
 func getMessages() {
 	//todo: check for chat
 
-	if currentChat == nil || currentUser == nil {
+	mu.Lock()
+	chatInfo := currentChat
+	userInfo := currentUser
+	mu.Unlock()
+
+	if chatInfo == nil || userInfo == nil {
 		return
 	}
 
 	data := server.GetMessagesRequest{
-		Chat: strconv.Itoa(int(currentChat.ID)),
+		Chat: strconv.Itoa(int(chatInfo.ID)),
 	}
 	payloadBytes, err := json.Marshal(data)
 	if err != nil {
@@ -241,9 +293,7 @@ func getMessages() {
 
 		if len(msgs) > nextMsgIndex {
 			for i := nextMsgIndex; i < len(msgs); i++ {
-				//if msgs[i].UserID != currentUser.ID {
 				extInput <- fmt.Sprint(externalPrefix(userNames[msgs[i].UserID]) + msgs[i].Text)
-				//}
 			}
 			nextMsgIndex = len(msgs)
 		}
@@ -252,25 +302,25 @@ func getMessages() {
 	}
 }
 
-func remoteChatInfo(name string) *server.Chat {
+func remoteChatInfo(name string) (*server.Chat, error) {
 	data := server.GetChatInfoRequest{
 		Chat: name,
 	}
 	payloadBytes, err := json.Marshal(data)
 	if err != nil {
-		panic(err)
+		return nil, err
 	}
 	body := bytes.NewReader(payloadBytes)
 
 	req, err := http.NewRequest("POST", "http://localhost:9000/chatinfo/get", body)
 	if err != nil {
-		panic(err)
+		return nil, err
 	}
 	req.Header.Set("Content-Type", "application/json")
 
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
-		panic(err)
+		return nil, err
 	}
 	defer resp.Body.Close()
 
@@ -278,11 +328,15 @@ func remoteChatInfo(name string) *server.Chat {
 		var chat server.Chat
 		err := json.NewDecoder(resp.Body).Decode(&chat)
 		if err != nil {
-			panic(err)
+			return nil, err
 		}
-		return &chat
+		return &chat, nil
 	} else {
-		panic(resp.StatusCode)
+		bodyBytes, err := ioutil.ReadAll(resp.Body)
+		if err != nil {
+			log.Fatal(err)
+		}
+		return nil, fmt.Errorf(string(bodyBytes))
 	}
 }
 
